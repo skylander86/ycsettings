@@ -35,7 +35,7 @@ class Settings(Mapping):
     * Arbitrary objects: All ``__dict__`` entries not starting with ``__`` are used as settings
 
     If ``settings_uri`` is found in the environment (``SETTINGS_URI``), dictionary, or arbitrary object, it will also load the corresponding settings URI in addition to the object itself.
-    This way, it can autoload from ``SETTINGS_URI`` in the environment and :class:`argparse.Namespace`s.
+    This way, it can autoload from ``SETTINGS_URI`` in the environment and :class:`argparse.Namespace`.
     For example,
 
     .. code-block:: python
