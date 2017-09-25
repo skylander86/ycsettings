@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-"""Top-level package for ycsettings."""
+from .settings import *
 
 __author__ = """Yanchuan Sim"""
 __email__ = 'yanchuan@outlook.com'
