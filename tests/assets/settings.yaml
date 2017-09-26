@@ -1,0 +1,10 @@
+---
+ycsettings_string: string
+ycsettings_int: 1
+ycsettings_float: 1.5
+ycsettings_bool: true
+ycsettings_false: 'false'
+ycsettings_list: [1, 2, 3, 'a', 'b', 'c']
+ycsettings_csv: 'apples, oranges, pears'
+ycsettings_dict: {a: 1, b: 2, c: 3, 1: 'a', 2: 'b', 3: 'c'}
+ycsettings_njobs: 2 * n
