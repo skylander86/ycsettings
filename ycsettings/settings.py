@@ -300,7 +300,7 @@ class Settings(Mapping):
 
     def getint(self, key, **kwargs):
         """
-        Gets the setting value as a :func:`int`.
+        Gets the setting value as a :obj:`int`.
 
         :rtype: int
         """
@@ -310,7 +310,7 @@ class Settings(Mapping):
 
     def getfloat(self, key, **kwargs):
         """
-        Gets the setting value as a :func:`float`.
+        Gets the setting value as a :obj:`float`.
 
         :rtype: float
         """
@@ -320,17 +320,17 @@ class Settings(Mapping):
 
     def getdict(self, key, **kwargs):
         """
-        Gets the setting value as a :func:`dict`.
+        Gets the setting value as a :obj:`dict`.
 
         :rtype: dict
         """
 
-        return self.getjson(key, **kwargs)
+        return self.getserialized(key, **kwargs)
     #end def
 
-    def getjson(self, key, decoder_func=None, **kwargs):
+    def getserialized(self, key, decoder_func=None, **kwargs):
         """
-        Gets the setting value as a :func:`dict` or :func:`list` using :meth:`json.loads`.
+        Gets the setting value as a :obj:`dict` or :obj:`list` trying :meth:`json.loads`, followed by :meth:`yaml.load`.
 
         :rtype: dict, list
         """
@@ -342,15 +342,17 @@ class Settings(Mapping):
 
         if decoder_func: return decoder_func(value)
 
-        o = None
-        try: o = json.loads(value)
+        try:
+            o = json.loads(value)
+            return o
         except json.decoder.JSONDecodeError: pass
-        try: o = yaml.load(value)
+
+        try:
+            o = yaml.load(value)
+            return o
         except yaml.parser.ParserError: pass
 
-        if o is None: raise ValueError('Unable to parse {} setting using JSON or YAML.'.format(key))
-
-        return o
+        raise ValueError('Unable to parse {} setting using JSON or YAML.'.format(key))
     #end def
 
     def geturi(self, key, **kwargs):
@@ -376,7 +378,7 @@ class Settings(Mapping):
         if isinstance(value, str):
             value = value.strip()
             if value.startswith('[') and value.endswith(']'):
-                return self.getjson(key)
+                return self.getserialized(key)
 
             return [p.strip(' ') for p in value.split(delimiter)]
         #end if
