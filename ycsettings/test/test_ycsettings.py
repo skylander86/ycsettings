@@ -55,7 +55,7 @@ class TestYCSettings(unittest.TestCase):
         self._assert_settings_object(os.path.join(os.path.dirname(os.path.realpath(__file__)), 'assets', 'settings.py'), search_first=[])
 
     def test_settings_module(self):
-        self._assert_settings_object('tests.assets.settings', search_first=[])
+        self._assert_settings_object('ycsettings.test.assets.settings', search_first=[])
 
     def test_settings_dict(self):
         self._assert_settings_object(self.settings, search_first=[])
@@ -67,6 +67,12 @@ class TestYCSettings(unittest.TestCase):
         obj = ObjectLike()
         obj.__dict__.update(self.settings)
         self._assert_settings_object(obj, search_first=[])
+    #end def
+
+    def test_multiple_settings(self):
+        settings = ycsettings.Settings(dict(key1='A'), dict(key1='B', key2='B'), search_first=[])
+        self.assertEqual(settings.get('key1'), 'A')
+        self.assertEqual(settings.get('key2'), 'B')
     #end def
 
     def _assert_settings_object(self, *args, string_list=False, string_dict_keys=False, **kwargs):
