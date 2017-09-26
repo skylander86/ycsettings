@@ -1,9 +1,13 @@
-__all__ = ['Settings', 'parse_n_jobs']
+__all__ = ['Settings', 'parse_n_jobs', 'MissingSettingException']
 
-from argparse import ArgumentParser
+__author__ = """Yanchuan Sim"""
+__email__ = 'yanchuan@outlook.com'
+__version__ = '0.1.0'
+
 from collections import OrderedDict, Mapping
 import configparser
 import importlib
+from io import TextIOWrapper
 import json
 import logging
 from multiprocessing import cpu_count
@@ -56,7 +60,7 @@ class Settings(Mapping):
         :param list sources: list of sources to search for settings
         :param list search_first: list of sources which will be searched first before any other sources specified in ``sources``.
         :param bool case_sensitive: whether to make case sensitive comparisons for settings key
-        :param bool raise_exception: whether to raise a :exc:`MissingSetting` exception when the setting is not found
+        :param bool raise_exception: whether to raise a :exc:`MissingSettingException` exception when the setting is not found
         :param bool warn_missing: whether to display a warning when the setting is not found
 
         :param str env_settings_uri_key: key to find settings URI in the environment
@@ -114,13 +118,15 @@ class Settings(Mapping):
             yield source, settings
 
         elif isinstance(source, str):
-            spec = importlib.util.find_spec(source)
-            if spec is None:
-                yield source, self._load_settings_from_uri(source)
+            try: spec = importlib.util.find_spec(source)
+            except (AttributeError, ModuleNotFoundError): spec = None
+
+            settings = self._load_settings_from_spec(spec, name=source)
+            if settings is None:
+                _, ext = os.path.splitext(source)
+                with uri_open(source, 'rb') as f:
+                    yield source, self._load_settings_from_file(f, ext=ext)
             else:
-                mod = importlib.util.module_from_spec(spec)
-                settings = dict((k, v) for k, v in mod.__dict__ if not k.startswith('__'))
-                logger.debug('Loaded {} settings from Python module <{}>.'.format(len(settings), source))
                 yield source, settings
             #end if
 
@@ -128,17 +134,17 @@ class Settings(Mapping):
             source_type = type(source).__name__
             if self.dict_settings_uri_key and self.dict_settings_uri_key in source:
                 logger.debug('Found {} in the dict-like object <{}>.'.format(self.dict_settings_uri_key, source_type))
-                yield source['settings_uri'], self._load_settings_from_uri(source[self.dict_settings_uri_key])
+                yield from self._load_settings_from_source(source[self.dict_settings_uri_key])
             #end if
 
-            logger.debug('Loaded {} settings from dict-like object <{}>.'.format(len(settings), source_type))
+            logger.debug('Loaded {} settings from dict-like object <{}>.'.format(len(source), source_type))
             yield self._get_unique_name(source_type), source
 
         else:
             source_type = type(source).__name__
             if self.object_settings_uri_key and hasattr(source, self.object_settings_uri_key):
                 logger.debug('Found {} in the object <{}>.'.format(self.object_settings_uri_key, source_type))
-                yield source.settings_uri, self._load_settings_from_uri(getattr(source, self.object_settings_uri_key))
+                yield from self._load_settings_from_source(getattr(source, self.object_settings_uri_key))
             #end if
 
             settings = dict((k, v) for k, v in source.__dict__.items() if not k.startswith('__'))
@@ -157,51 +163,54 @@ class Settings(Mapping):
         return name
     #end def
 
-    def _load_settings_from_uri(self, settings_uri):
-        _, ext = os.path.splitext(settings_uri)
-        with uri_open(settings_uri, 'rb') as f:
-            return self._load_settings_from_file(f, ext=ext)
+    def _load_settings_from_spec(self, spec, name=None):
+        if spec is None: return None
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)
+        settings = dict((k, v) for k, v in mod.__dict__.items() if not k.startswith('__'))
+        if name: logger.debug('Loaded {} settings from Python module <{}>.'.format(len(settings), name))
+
+        return settings
+    #end def
+
+    def _load_settings_from_uri(self, uri):
+        _, ext = os.path.splitext(uri)
+        with uri_open(uri) as f:
+            settings = self._load_settings_from_file(f, ext=ext)
+
+        logger.debug('Loaded {} settings from URI <{}>.'.format(len(settings), uri))
+        return settings
     #end def
 
     def _load_settings_from_file(self, f, ext=None):
-        if ext is None:
-            _, ext = os.path.spiltext(f.name)
+        if ext is None or ext == '.gz':
+            name = f.name[:-3] if f.name.endswith('.gz') else f.name
+            basename, ext = os.path.splitext(name)
+        #end if
         ext = ext.lower()
         ext_type = ext[1:].upper()
 
-        if ext == '.json': d = json.load(f)
+        if ext in ('.json', '.js'): d = json.load(f)
         elif ext == '.yaml': d = yaml.load(f)
         elif ext in ('.pkl', '.pickle'): d = pickle.load(f)
         elif ext in ['.ini']:
             config = configparser.ConfigParser()
-            config.read_file(f)
-            d = {}
-            for section in config.sections():
-                d[section] = {}
-                for name, value in config.items(section):
-                    d[section][name] = value
-            #end for
+            config.read_file(TextIOWrapper(f))
+            d = dict((name, value) for section in config.sections() for name, value in config.items(section))
 
         elif ext in ['.py']:
-            fname = None
+            temp_fname = None
             ext_type = 'Python module'
             try:
-                with NamedTemporaryFile(mode='wb', delete=False) as g:
+                with NamedTemporaryFile(mode='wb', suffix='.py', delete=False) as g:
                     g.write(f.read())
-                    fname = g.name
+                    temp_fname = g.name
                 #end with
 
-                spec = importlib.util.spec_from_file_location('settings_module', fname)
-                mod = importlib.util.module_from_spec(spec)
-
-                d = dict((k, v) for k, v in mod.__dict__ if not k.startswith('__'))
+                d = self._load_settings_from_spec(importlib.util.spec_from_file_location('settings_module', os.path.abspath(temp_fname)))
 
             finally:
-                os.remove(fname)
-
-            # name = "package." + name
-            # mod = __import__(name, fromlist=[''])
-            # mod.doSomething()
+                os.remove(temp_fname)
 
         else: raise ValueError('Unknown settings file format: {}'.format(ext))
 
@@ -218,7 +227,7 @@ class Settings(Mapping):
         :param str default: use this as default value when the setting key is not found
         :param func cast_func: cast the value of the settings using this function
         :param bool case_sensitive: whether to make case sensitive comparisons for settings key
-        :param bool raise_exception: whether to raise a :exc:`MissingSetting` exception when the setting is not found
+        :param bool raise_exception: whether to raise a :exc:`MissingSettingException` exception when the setting is not found
         :param bool warn_missing: whether to display a warning when the setting is not found
 
         :returns: the setting value
@@ -259,7 +268,7 @@ class Settings(Mapping):
         #end for
 
         if not found:
-            if raise_exception: raise MissingSetting('The "{}" setting is missing.'.format(key))
+            if raise_exception: raise MissingSettingException('The "{}" setting is missing.'.format(key))
             if warn_missing: warnings.warn('The "{}" setting is missing.'.format(key))
 
             return default
@@ -273,12 +282,23 @@ class Settings(Mapping):
 
     def getbool(self, key, **kwargs):
         """
-        Gets the setting value as a :func:`bool`.
+        Gets the setting value as a :func:`bool` by cleverly recognizing true values.
 
         :rtype: bool
         """
 
-        return self.get(key, cast_func=bool, **kwargs)
+        def _string_to_bool(s):
+            if isinstance(s, str):
+                if s.strip().lower() in ('true', 't', '1'): return True
+                elif s.strip().lower() in ('false', 'f', '0', 'None', 'null', ''): return False
+
+                raise ValueError('Unable to get boolean value of "{}".'.format(s))
+            #end if
+
+            return bool(s)
+        #end def
+
+        return self.get(key, cast_func=_string_to_bool, **kwargs)
     #end def
 
     def getint(self, key, **kwargs):
@@ -311,7 +331,7 @@ class Settings(Mapping):
         return self.getjson(key, **kwargs)
     #end def
 
-    def getjson(self, key, **kwargs):
+    def getjson(self, key, decoder_func=None, **kwargs):
         """
         Gets the setting value as a :func:`dict` or :func:`list` using :meth:`json.loads`.
 
@@ -320,10 +340,20 @@ class Settings(Mapping):
 
         value = self.get(key, cast_func=None, **kwargs)
 
-        if isinstance(value, (dict, list, tuple)):
+        if isinstance(value, (dict, list, tuple)) or value is None:
             return value
 
-        return json.loads(value)
+        if decoder_func: return decoder_func(value)
+
+        o = None
+        try: o = json.loads(value)
+        except json.decoder.JSONDecodeError: pass
+        try: o = yaml.load(value)
+        except yaml.parser.ParserError: pass
+
+        if o is None: raise ValueError('Unable to parse {} setting using JSON or YAML.'.format(key))
+
+        return o
     #end def
 
     def geturi(self, key, **kwargs):
@@ -344,7 +374,17 @@ class Settings(Mapping):
         :rtype: list
         """
 
-        return self.get(key, cast_func=lambda s: s.split(delimiter), **kwargs)
+        value = self.get(key, **kwargs)
+        if value is None: return value
+        if isinstance(value, str):
+            value = value.strip()
+            if value.startswith('[') and value.endswith(']'):
+                return self.getjson(key)
+
+            return [p.strip(' ') for p in value.split(delimiter)]
+        #end if
+
+        return list(value)
     #end def
 
     def getnjobs(self, key, **kwargs):
@@ -398,7 +438,7 @@ class Settings(Mapping):
 #end class
 
 
-class MissingSetting(Exception):
+class MissingSettingException(Exception):
     pass
 
 
@@ -439,29 +479,9 @@ def parse_n_jobs(s):
 
     n_jobs = int(n_jobs)
     if n_jobs <= 0:
-        logger.warning('n_jobs={} is invalid. Setting n_jobs=1.'.format(n_jobs))
+        warnings.warn('n_jobs={} is invalid. Setting n_jobs=1.'.format(n_jobs))
         n_jobs = 1
     #end if
 
-    if n_jobs > N:
-        logger.warning('n_jobs={} is > number of available CPUs ({}).'.format(s, N))
-
     return int(n_jobs)
 #end def
-
-
-def main():
-    parser = ArgumentParser(description='')
-    parser.add_argument('settings_uri', type=str, metavar='<config_file>', help='Positional option')
-    A = parser.parse_args()
-
-    logging.basicConfig(format='%(asctime)-15s [%(name)s-%(process)d] %(levelname)s: %(message)s', level=logging.DEBUG)
-    settings = Settings(A, warn_missing=False)
-    for k in settings:
-        print(k, '=', settings[k])
-    # print(settings.get('n_job'))
-    # print(settings._cache)
-#end def
-
-
-if __name__ == '__main__': main()
