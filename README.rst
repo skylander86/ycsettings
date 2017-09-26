@@ -1,5 +1,5 @@
-ycsettings 0.1
-==============
+ycsettings
+==========
 
 .. image:: https://img.shields.io/pypi/v/ycsettings.svg
         :target: https://pypi.python.org/pypi/ycsettings
