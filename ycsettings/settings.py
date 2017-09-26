@@ -367,7 +367,7 @@ class Settings(Mapping):
 
     def getlist(self, key, delimiter=',', **kwargs):
         """
-        Gets the setting value as a :func:`list`; it splits the string using ``delimiter``.
+        Gets the setting value as a :class:`list`; it splits the string using ``delimiter``.
 
         :param str delimiter: split the value using this delimiter
         :rtype: list
@@ -389,7 +389,7 @@ class Settings(Mapping):
     def getnjobs(self, key, **kwargs):
         """
         Gets the setting value as an integer relative to the number of CPU.
-        See :func:`parse_n_jobs` for parsing rules.
+        See :func:`ycsettings.settings.parse_n_jobs` for parsing rules.
 
         :rtype: int
         """
@@ -447,8 +447,6 @@ def parse_n_jobs(s):
     It is useful for specifying the number of jobs.
 
     For example, on an 8-core machine::
-
-    .. code-block:: python
 
         assert parse_n_jobs('0.5 * n') == 4
         assert parse_n_jobs('2n') == 16
