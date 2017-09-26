@@ -21,6 +21,7 @@ setup(
     license="Apache Software License 2.0",
     zip_safe=True,
     keywords='ycsettings',
+    test_suite='ycsettings.test',
     classifiers=[
         'Development Status :: 4 - Beta',
         'Intended Audience :: Developers',
