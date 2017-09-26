@@ -8,9 +8,12 @@ with open('README.rst') as readme_file:
 with open('requirements.txt', 'r') as f:
     requirements = list(filter(None, (line.strip() for line in f)))
 
+with open('VERSION', 'r') as f:
+    version = f.read().strip()
+
 setup(
     name='ycsettings',
-    version='0.1.0',
+    version=version,
     description="A utility module for handling app settings.",
     long_description=readme,
     author="Yanchuan Sim",

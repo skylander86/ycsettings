@@ -1,8 +1,5 @@
 __all__ = ['Settings', 'parse_n_jobs', 'MissingSettingException']
 
-__author__ = """Yanchuan Sim"""
-__email__ = 'yanchuan@outlook.com'
-__version__ = '0.1.0'
 
 from collections import OrderedDict, Mapping
 import configparser
