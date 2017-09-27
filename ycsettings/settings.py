@@ -5,6 +5,7 @@ from collections import OrderedDict, Mapping
 import configparser
 import importlib
 from io import TextIOWrapper
+from itertools import chain
 import json
 import logging
 from multiprocessing import cpu_count
@@ -217,7 +218,7 @@ class Settings(Mapping):
         return d
     #end def
 
-    def get(self, key, *, default=None, cast_func=None, case_sensitive=None, raise_exception=None, warn_missing=None):
+    def get(self, key, *, default=None, cast_func=None, case_sensitive=None, raise_exception=None, warn_missing=None, use_cache=True, additional_sources=[]):
         """
         Gets the setting specified by ``key``. For efficiency, we cache the retrieval of settings to avoid multiple searches through the sources list.
 
@@ -227,6 +228,7 @@ class Settings(Mapping):
         :param bool case_sensitive: whether to make case sensitive comparisons for settings key
         :param bool raise_exception: whether to raise a :exc:`MissingSettingException` exception when the setting is not found
         :param bool warn_missing: whether to display a warning when the setting is not found
+        :param list additional_sources: additional sources to search for the key; note that the values obtained here could be cached in a future call
 
         :returns: the setting value
         :rtype: str
@@ -238,12 +240,12 @@ class Settings(Mapping):
 
         if not case_sensitive: key = key.lower()
 
-        if key in self._cache:
+        if use_cache and key in self._cache:
             return cast_func(self._cache[key]) if cast_func else self._cache[key]
 
         found, value = False, None
 
-        for source, settings in self._settings.items():
+        for source, settings in chain(self._settings.items(), map(self._load_settings_from_source, additional_sources)):
             if case_sensitive:
                 if key in settings:
                     found = True
@@ -272,7 +274,7 @@ class Settings(Mapping):
             return default
         #end if
 
-        self._cache[key] = value
+        if use_cache: self._cache[key] = value
         if cast_func: value = cast_func(value)
 
         return value
