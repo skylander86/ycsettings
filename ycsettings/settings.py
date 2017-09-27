@@ -78,8 +78,7 @@ class Settings(Mapping):
         self._settings = OrderedDict()
         self._union_keys = None
 
-        self.sources = search_first + list(filter(None, sources))
-        for source in self.sources:
+        for source in chain(search_first, filter(None, sources)):
             for name, settings in self._load_settings_from_source(source):
                 if not settings: continue
 
