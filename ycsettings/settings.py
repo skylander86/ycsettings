@@ -51,7 +51,7 @@ class Settings(Mapping):
     The file specified in ``A.settings_uri`` will be loaded.
     """
 
-    def __init__(self, *sources, search_first=['env', 'env_settings_uri'], case_sensitive=False, raise_exception=False, warn_missing=True, env_settings_uri_keys=['SETTINGS_URI'], dict_settings_uri_keys=['settings', 'settings_uri'], object_settings_uri_keys=['settings', 'settings_uri']):
+    def __init__(self, *sources, search_first=['env', 'env_settings_uri'], case_sensitive=False, raise_exception=False, warn_missing=False, env_settings_uri_keys=['SETTINGS_URI'], dict_settings_uri_keys=['settings', 'settings_uri'], object_settings_uri_keys=['settings', 'settings_uri']):
         """
         Initializes the :class:`Settings` object.
 
@@ -219,6 +219,8 @@ class Settings(Mapping):
                 os.remove(temp_fname)
 
         else: raise ValueError('Unknown settings file format: {}'.format(ext))
+
+        if d is None: d = {}
 
         logger.debug('Loaded {} {} settings from <{}>.'.format(len(d), ext_type, f.name))
 
