@@ -130,7 +130,7 @@ class Settings(Mapping):
 
         elif hasattr(source, 'items'):
             source_type = type(source).__name__
-            if self.dict_settings_uri_key and self.dict_settings_uri_key in source:
+            if self.dict_settings_uri_key and self.dict_settings_uri_key in source and source[self.dict_settings_uri_key]:
                 logger.debug('Found {} in the dict-like object <{}>.'.format(self.dict_settings_uri_key, source_type))
                 yield from self._load_settings_from_source(source[self.dict_settings_uri_key])
             #end if
@@ -140,7 +140,7 @@ class Settings(Mapping):
 
         else:
             source_type = type(source).__name__
-            if self.object_settings_uri_key and hasattr(source, self.object_settings_uri_key):
+            if self.object_settings_uri_key and hasattr(source, self.object_settings_uri_key) and getattr(source, self.object_settings_uri_key):
                 logger.debug('Found {} in the object <{}>.'.format(self.object_settings_uri_key, source_type))
                 yield from self._load_settings_from_source(getattr(source, self.object_settings_uri_key))
             #end if
