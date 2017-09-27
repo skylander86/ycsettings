@@ -1,14 +1,17 @@
 #!/usr/bin/env python
 
+import os
 from setuptools import setup, find_packages
 
-with open('README.rst') as readme_file:
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
+
+with open(os.path.join(SCRIPT_DIR, 'README.rst'), 'r') as readme_file:
     readme = readme_file.read()
 
-with open('requirements.txt', 'r') as f:
+with open(os.path.join(SCRIPT_DIR, 'requirements.txt'), 'r') as f:
     requirements = list(filter(None, (line.strip() for line in f)))
 
-with open('VERSION', 'r') as f:
+with open(os.path.join(SCRIPT_DIR, 'VERSION'), 'r') as f:
     version = f.read().strip()
 
 setup(
