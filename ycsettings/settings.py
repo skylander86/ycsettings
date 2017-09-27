@@ -102,9 +102,9 @@ class Settings(Mapping):
             pass
         elif source == 'env_settings_uri':
             for env_settings_uri_key in self.env_settings_uri_keys:
-                env_settings_uri = self._search_environ(self.env_settings_uri_key)
+                env_settings_uri = self._search_environ(env_settings_uri_key)
                 if env_settings_uri:
-                    logger.debug('Found {} in the environment.'.format(self.env_settings_uri_key))
+                    logger.debug('Found {} in the environment.'.format(env_settings_uri_key))
                     yield env_settings_uri, self._load_settings_from_uri(env_settings_uri)
                 #end if
             #end for
