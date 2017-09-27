@@ -51,7 +51,7 @@ class Settings(Mapping):
     The file specified in ``A.settings_uri`` will be loaded.
     """
 
-    def __init__(self, *sources, search_first=['env', 'env_settings_uri'], case_sensitive=False, raise_exception=False, warn_missing=True, env_settings_uri_key='SETTINGS_URI', dict_settings_uri_key='settings_uri', object_settings_uri_key='settings_uri'):
+    def __init__(self, *sources, search_first=['env', 'env_settings_uri'], case_sensitive=False, raise_exception=False, warn_missing=True, env_settings_uri_keys=['SETTINGS_URI'], dict_settings_uri_keys=['settings', 'settings_uri'], object_settings_uri_keys=['settings', 'settings_uri']):
         """
         Initializes the :class:`Settings` object.
 
@@ -61,18 +61,18 @@ class Settings(Mapping):
         :param bool raise_exception: whether to raise a :exc:`MissingSettingException` exception when the setting is not found
         :param bool warn_missing: whether to display a warning when the setting is not found
 
-        :param str env_settings_uri_key: key to find settings URI in the environment
-        :param str dict_settings_uri_key: key to find settings URI in a :func:`dict`-like object
-        :param str object_settings_uri_key: key to find settings URI in an arbitrary object
+        :param str env_settings_uri_keys: keys to find settings in the environment; if multiple keys are found, they'll all be used
+        :param str dict_settings_uri_keys: keys to find settings in a :func:`dict`-like object; if multiple keys are found, they'll all be used
+        :param str object_settings_uri_keys: keys to find settings in an arbitrary object; if multiple keys are found, they'll all be used
         """
 
         self.case_sensitive = case_sensitive
         self.raise_exception = raise_exception
         self.warn_missing = warn_missing
 
-        self.env_settings_uri_key = env_settings_uri_key
-        self.dict_settings_uri_key = dict_settings_uri_key
-        self.object_settings_uri_key = object_settings_uri_key
+        self.env_settings_uri_keys = env_settings_uri_keys
+        self.dict_settings_uri_keys = dict_settings_uri_keys
+        self.object_settings_uri_keys = object_settings_uri_keys
 
         self._cache = {}
         self._settings = OrderedDict()
@@ -101,12 +101,13 @@ class Settings(Mapping):
         if not source:
             pass
         elif source == 'env_settings_uri':
-            env_settings_uri = self._search_environ(self.env_settings_uri_key)
-            if env_settings_uri:
-                logger.debug('Found {} in the environment.'.format(self.env_settings_uri_key))
-                yield env_settings_uri, self._load_settings_from_uri(env_settings_uri)
-            else:
-                yield env_settings_uri, None
+            for env_settings_uri_key in self.env_settings_uri_keys:
+                env_settings_uri = self._search_environ(self.env_settings_uri_key)
+                if env_settings_uri:
+                    logger.debug('Found {} in the environment.'.format(self.env_settings_uri_key))
+                    yield env_settings_uri, self._load_settings_from_uri(env_settings_uri)
+                #end if
+            #end for
 
         elif source == 'env':
             logger.debug('Loaded {} settings from the environment.'.format(len(os.environ)))
@@ -129,22 +130,29 @@ class Settings(Mapping):
                 yield source, settings
             #end if
 
+        elif hasattr(source, 'read'):
+            yield source.name, self._load_settings_from_file(source)
+
         elif hasattr(source, 'items'):
             source_type = type(source).__name__
-            if self.dict_settings_uri_key and self.dict_settings_uri_key in source and source[self.dict_settings_uri_key]:
-                logger.debug('Found {} in the dict-like object <{}>.'.format(self.dict_settings_uri_key, source_type))
-                yield from self._load_settings_from_source(source[self.dict_settings_uri_key])
-            #end if
+            for dict_settings_uri_key in self.dict_settings_uri_keys:
+                if dict_settings_uri_key and dict_settings_uri_key in source and source[dict_settings_uri_key]:
+                    logger.debug('Found {} in the dict-like object <{}>.'.format(dict_settings_uri_key, source_type))
+                    yield from self._load_settings_from_source(source[dict_settings_uri_key])
+                #end if
+            #end for
 
             logger.debug('Loaded {} settings from dict-like object <{}>.'.format(len(source), source_type))
             yield self._get_unique_name(source_type), source
 
         else:
             source_type = type(source).__name__
-            if self.object_settings_uri_key and hasattr(source, self.object_settings_uri_key) and getattr(source, self.object_settings_uri_key):
-                logger.debug('Found {} in the object <{}>.'.format(self.object_settings_uri_key, source_type))
-                yield from self._load_settings_from_source(getattr(source, self.object_settings_uri_key))
-            #end if
+            for object_settings_uri_key in self.object_settings_uri_keys:
+                if object_settings_uri_key and hasattr(source, object_settings_uri_key) and getattr(source, object_settings_uri_key):
+                    logger.debug('Found {} in the object <{}>.'.format(object_settings_uri_key, source_type))
+                    yield from self._load_settings_from_source(getattr(source, object_settings_uri_key))
+                #end if
+            #end for
 
             settings = dict((k, v) for k, v in source.__dict__.items() if not k.startswith('__'))
             logger.debug('Loaded {} settings from object <{}>.'.format(len(settings), source_type))
