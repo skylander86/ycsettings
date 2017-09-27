@@ -77,7 +77,7 @@ class Settings(Mapping):
         self._settings = OrderedDict()
         self._union_keys = None
 
-        self.sources = search_first + list(sources)
+        self.sources = search_first + list(filter(None, sources))
         for source in self.sources:
             for name, settings in self._load_settings_from_source(source):
                 if not settings: continue
@@ -97,8 +97,9 @@ class Settings(Mapping):
         :returns: a standard :func:`dict` containing the settings from the source
         :rtype: dict
         """
-
-        if source == 'env_settings_uri':
+        if not source:
+            pass
+        elif source == 'env_settings_uri':
             env_settings_uri = self._search_environ(self.env_settings_uri_key)
             if env_settings_uri:
                 logger.debug('Found {} in the environment.'.format(self.env_settings_uri_key))
