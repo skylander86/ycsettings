@@ -118,7 +118,7 @@ class Settings(Mapping):
 
         elif isinstance(source, str):
             try: spec = importlib.util.find_spec(source)
-            except (AttributeError, ModuleNotFoundError): spec = None
+            except (AttributeError, ImportError): spec = None
 
             settings = self._load_settings_from_spec(spec, name=source)
             if settings is None:
